@@ -1,0 +1,29 @@
+# path <TAB> expected status <TAB> jq assertion (optional)
+/v1/teams/34730dd0-bb84-4a04-a343-52395b5c710b/versus/fc925258-cecb-4c10-98ad-29d93741ddd1?limit=3	200	.played == 558 and .played == (([.teams[].won] | add) + .drawn + .tied + .no_result) and .count == 3
+/v1/teams/34730dd0-bb84-4a04-a343-52395b5c710b/versus/fc925258-cecb-4c10-98ad-29d93741ddd1?format=odi&limit=2	200	.played == 162 and .filters.format == "odi" and ([.matches[].format] | unique) == ["odi"]
+/v1/teams/187754/versus/fc925258-cecb-4c10-98ad-29d93741ddd1?limit=1	200	.played >= 0 and (.teams | length) == 2
+/v1/teams/34730dd0-bb84-4a04-a343-52395b5c710b/versus/34730dd0-bb84-4a04-a343-52395b5c710b	400	
+/v1/teams/34730dd0-bb84-4a04-a343-52395b5c710b/versus/00000000-0000-0000-0000-000000000000	404	
+/v1/matches?limit=5	200	.count == 5 and .filters.format == null and .filters.country == null
+/v1/matches?country=England&limit=100	200	.count == 100 and ([.matches[].venue.country] | unique) == ["England"]
+/v1/matches?format=t20&limit=10	200	.count == 10 and ([.matches[].format] | unique) == ["t20"]
+/v1/matches?country=Nowhere&limit=5	200	.count == 0
+/v1/matches?limit=0	400	
+/v1/matches?limit=500	400	
+/v1/venues/965f4ae0-0b91-4988-b848-fce938a53214/matches?limit=2	200	.venue.name == "Lord's" and .venue.total_matches == 1954 and .count == 2
+/v1/venues/Lord%27s/matches?limit=1	200	.venue.id == "965f4ae0-0b91-4988-b848-fce938a53214"
+/v1/venues/Dhaka/matches?limit=1	200	.venue.country == "Bangladesh" and .venue.total_matches == 68
+/v1/venues/965f4ae0-0b91-4988-b848-fce938a53214/matches?format=test&limit=50	200	.count == 50 and ([.matches[].format] | unique) == ["test"]
+/v1/venues/965f4ae0-0b91-4988-b848-fce938a53214/matches?match_id=20140110_00135_Perth	200	.count == 0 and .filters.match_id == "9707916c-09b8-4842-a209-2b6b23b916bd"
+/v1/venues/965f4ae0-0b91-4988-b848-fce938a53214/matches?match_id=not-a-real-match	200	.count == 0 and .filters.match_id == null
+/v1/venues/no-such-ground/matches	404	
+/v1/venues/00000000-0000-0000-0000-000000000000/matches	404	
+/v1/search?q=Lord%27s	200	[.venues[].id] | index("965f4ae0-0b91-4988-b848-fce938a53214") != null
+/v1/venues/965f4ae0-0b91-4988-b848-fce938a53214/matches?limit=3	200	.venue.source == "daft" and .venue.source_label == "DAFT" and .sources.primary_label != null and ([.matches[].source] | unique | length) >= 1
+/v1/matches?limit=5	200	(.sources.breakdown | map(.rows) | add) == 5 and (.sources.blended | type) == "boolean" and all(.sources.breakdown[]; .source_label != null)
+/v1/teams/34730dd0-bb84-4a04-a343-52395b5c710b/versus/fc925258-cecb-4c10-98ad-29d93741ddd1?limit=2	200	(.sources.breakdown | map(.rows) | add) == .played and .sources.primary == "daft"
+/v1/search?q=England	200	all(.players[], .teams[], .competitions[], .venues[], .matches[]; .source != null and .source_label != null) and (.sources.breakdown | length) >= 1
+/v1/players/f4d2dff6-2fc5-44cb-ad1d-7a7c2dcdbf9a	200	.source_label == "DAFT" and .batting.sources.primary == "daft" and (.sources.breakdown | map(.rows) | add) > 0
+/v1/teams/34730dd0-bb84-4a04-a343-52395b5c710b	200	.sources.primary == "daft" and (.results | map(select(.format == "t20")) | .[0].sources.primary) == "sofascore"
+/v1/matches/20140110_00135_Perth	200	.scorecard.source_label == "DAFT" and all(.scorecard.innings[].batting[]; .source == "daft") and .sources.blended == false
+/v1/cricket/event/20140110_00135_Perth/h2h	200	.source == "wickets" and .sources.primary == "daft" and all(.matchups[]; .source == "daft")

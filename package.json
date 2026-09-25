@@ -1,7 +1,7 @@
 {
   "name": "cricket-unified-nest",
   "version": "0.1.0",
-  "description": "Read-only unified cricket API — NestJS 11 + TypeORM + PostgreSQL",
+  "description": "Read-only unified cricket API \u2014 NestJS 11 + TypeORM + PostgreSQL",
   "private": true,
   "license": "UNLICENSED",
   "engines": {
@@ -9,13 +9,13 @@
   },
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "nest build",
+    "build": "node init && nest build",
     "postbuild": "tsc-alias -p tsconfig.json",
     "format": "prettier --write \"src/**/*.ts\"",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start": "node init && nest start",
+    "start:dev": "node init && nest start --watch",
+    "start:debug": "node init && nest start --debug --watch",
+    "start:prod": "node init && node dist/main",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "test": "jest"

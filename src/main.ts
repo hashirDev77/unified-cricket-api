@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
+import { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
@@ -34,6 +35,19 @@ async function bootstrap(): Promise<void> {
 
   const swaggerPath = config.get('SWAGGER_PATH', { infer: true });
   if (config.get('SWAGGER_ENABLED', { infer: true })) {
+    // The spec changes with every deploy, so the browser must revalidate it
+    // rather than render a cached copy that is missing the newest parameters.
+    const documentUrls = new Set([
+      `/${swaggerPath}`,
+      `/${swaggerPath}/`,
+      `/${swaggerPath}-json`,
+      `/${swaggerPath}-yaml`,
+    ]);
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (documentUrls.has(req.path)) res.setHeader('Cache-Control', 'no-cache');
+      next();
+    });
+
     const document = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()

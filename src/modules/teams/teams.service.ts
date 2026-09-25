@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { pageWindow, paginationOf } from 'src/common/dto/pagination.dto';
 import { toInt, toIntOrZero } from 'src/common/formatting/numbers';
 import { formString } from 'src/common/formatting/result.util';
 import { TEAM_PAGE_NOTE } from 'src/common/provenance/notes';
 import { mergeSummaries, sourceRef, summariseCounts } from 'src/common/provenance/source.util';
-import { formatSortKey, MatchFormat } from 'src/database/enums/cricket.enums';
+import { DEFAULT_OFFSET } from 'src/common/sql/page.util';
+import { formatSortKey } from 'src/database/enums/cricket.enums';
 import { MatchListService } from 'src/modules/match-list/match-list.service';
 import { RecordsService } from 'src/modules/records/records.service';
 import { TeamHeadToHeadDto } from './dto/team-head-to-head.dto';
@@ -22,17 +24,20 @@ export class TeamsService {
     private readonly matchList: MatchListService,
   ) {}
 
-  async getTeam(
-    teamId: string,
-    format: MatchFormat | null,
-    limit = RECENT_LIMIT,
-  ): Promise<TeamPageDto | null> {
+  async getTeam(teamId: string, query: TeamQueryDto): Promise<TeamPageDto | null> {
     const team = await this.repository.findTeam(teamId);
     if (!team) return null;
 
-    const [recordRows, recentMatches] = await Promise.all([
+    const format = query.format ?? null;
+    const window = pageWindow(query, RECENT_LIMIT);
+
+    const [recordRows, recent, newest] = await Promise.all([
       this.repository.formatRecords(teamId, format),
-      this.records.recentMatches(teamId, { limit, format }),
+      this.records.recentMatches(teamId, { ...window, format }),
+      // `form` always reads the newest results, so paging the list cannot rewrite it.
+      window.offset === DEFAULT_OFFSET
+        ? null
+        : this.records.recentMatches(teamId, { limit: window.limit, format }),
     ]);
 
     const results = recordRows
@@ -50,8 +55,9 @@ export class TeamsService {
       sofa_id: toInt(team.sofa_id),
       format,
       results,
-      form: formString(recentMatches),
-      recent_matches: recentMatches,
+      form: formString((newest ?? recent).rows),
+      recent_matches: recent.rows,
+      pagination: paginationOf(recent, window),
       sources: mergeSummaries(
         results.map((record) => record.sources),
         TEAM_PAGE_NOTE,
@@ -71,23 +77,30 @@ export class TeamsService {
     if (!teamA || !teamB) return null;
 
     const format = query.format ?? null;
+    const window = pageWindow(query, H2H_MATCH_LIMIT);
     const sides = [
       { id: teamA.team_id, name: teamA.name },
       { id: teamB.team_id, name: teamB.name },
     ] as const;
 
-    const [record, matches] = await Promise.all([
+    const [record, page] = await Promise.all([
       this.records.headToHead(sides[0], sides[1], { format }),
       this.matchList.findMatches({
         teamIds: [teamA.team_id, teamB.team_id],
         format,
         completedOnly: true,
-        limit: query.limit ?? H2H_MATCH_LIMIT,
+        ...window,
       }),
     ]);
 
     // `record.sources` already spans every meeting, of which `matches` is a capped subset.
-    return { ...record, filters: { format }, count: matches.length, matches };
+    return {
+      ...record,
+      filters: { format },
+      count: page.rows.length,
+      pagination: paginationOf(page, window),
+      matches: page.rows,
+    };
   }
 
   private toFormatRecord(row: FormatRecordRow): FormatRecordDto {

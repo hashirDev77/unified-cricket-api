@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Numeric } from 'src/common/formatting/numbers';
+import { DEFAULT_OFFSET, fetchPage, Page } from 'src/common/sql/page.util';
 import { Competition, Match, MatchTeam, Team, Venue } from 'src/database/entities';
 import { MatchFormat, MatchStatus } from 'src/database/enums/cricket.enums';
 import { Repository } from 'typeorm';
@@ -48,6 +49,7 @@ export interface MatchListFilters {
   format?: MatchFormat | null;
   completedOnly?: boolean;
   limit?: number;
+  offset?: number;
 }
 
 export const DEFAULT_MATCH_LIMIT = 20;
@@ -56,7 +58,7 @@ export const DEFAULT_MATCH_LIMIT = 20;
 export class MatchListRepository {
   constructor(@InjectRepository(Match) private readonly matches: Repository<Match>) {}
 
-  findMatches(filters: MatchListFilters = {}): Promise<MatchSummaryRow[]> {
+  findMatches(filters: MatchListFilters = {}): Promise<Page<MatchSummaryRow>> {
     const {
       teamIds = [],
       venueId = null,
@@ -65,6 +67,7 @@ export class MatchListRepository {
       format = null,
       completedOnly = false,
       limit = DEFAULT_MATCH_LIMIT,
+      offset = DEFAULT_OFFSET,
     } = filters;
 
     const qb = this.matches
@@ -95,8 +98,7 @@ export class MatchListRepository {
       .leftJoin(Venue, 'v', 'v.venueId = m.venueId')
       .leftJoin(Team, 'winnerTeam', 'winnerTeam.teamId = m.winnerTeamId')
       .orderBy('m.startDate', 'DESC')
-      .addOrderBy('m.matchId', 'DESC')
-      .limit(limit);
+      .addOrderBy('m.matchId', 'DESC');
 
     teamIds.forEach((teamId, index) => {
       const alias = `side${index}`;
@@ -114,7 +116,7 @@ export class MatchListRepository {
     if (format) qb.andWhere('m.format = CAST(:format AS cricket.match_format)', { format });
     if (completedOnly) qb.andWhere('m.status = :status', { status: MatchStatus.Completed });
 
-    return qb.getRawMany<MatchSummaryRow>();
+    return fetchPage<MatchSummaryRow>(qb, { limit, offset });
   }
 
   /** One round trip for every match in a list, instead of one query per match. */

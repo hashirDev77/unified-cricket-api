@@ -107,6 +107,35 @@ export class MatchHitDto extends SourcedDto {
   sofa_id: number | null;
 }
 
+/** `limit` windows each group separately, so each one reports its own flag. */
+export class SearchHasMoreDto {
+  @ApiProperty()
+  players: boolean;
+
+  @ApiProperty()
+  teams: boolean;
+
+  @ApiProperty()
+  competitions: boolean;
+
+  @ApiProperty()
+  venues: boolean;
+
+  @ApiProperty()
+  matches: boolean;
+}
+
+export class SearchPaginationDto {
+  @ApiProperty({ description: 'Rows each group was allowed to hold.' })
+  limit: number;
+
+  @ApiProperty({ description: 'Rows skipped in every group.' })
+  offset: number;
+
+  @ApiProperty({ type: SearchHasMoreDto })
+  has_more: SearchHasMoreDto;
+}
+
 export class SearchResponseDto {
   @ApiProperty()
   query: string;
@@ -125,6 +154,9 @@ export class SearchResponseDto {
 
   @ApiProperty({ type: [MatchHitDto] })
   matches: MatchHitDto[];
+
+  @ApiProperty({ type: SearchPaginationDto })
+  pagination: SearchPaginationDto;
 
   @ApiProperty({ type: ResponseSourcesDto, description: 'Feed mix across every hit above.' })
   sources: ResponseSourcesDto;

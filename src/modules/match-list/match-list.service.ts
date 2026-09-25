@@ -3,6 +3,7 @@ import { MatchSummaryDto } from 'src/common/dto/match-summary.dto';
 import { toInt } from 'src/common/formatting/numbers';
 import { resultSummary } from 'src/common/formatting/result.util';
 import { sourceRef } from 'src/common/provenance/source.util';
+import { emptyPage, mapPage, Page } from 'src/common/sql/page.util';
 import { groupBy } from 'src/common/sql/query.util';
 import {
   MatchListFilters,
@@ -15,14 +16,14 @@ import {
 export class MatchListService {
   constructor(private readonly repository: MatchListRepository) {}
 
-  async findMatches(filters: MatchListFilters = {}): Promise<MatchSummaryDto[]> {
-    const rows = await this.repository.findMatches(filters);
-    if (rows.length === 0) return [];
+  async findMatches(filters: MatchListFilters = {}): Promise<Page<MatchSummaryDto>> {
+    const page = await this.repository.findMatches(filters);
+    if (page.rows.length === 0) return emptyPage();
 
-    const sides = await this.repository.findSides(rows.map((row) => row.id));
+    const sides = await this.repository.findSides(page.rows.map((row) => row.id));
     const byMatch = groupBy(sides, (side) => side.match_id);
 
-    return rows.map((row) => this.toSummary(row, byMatch[row.id] ?? []));
+    return mapPage(page, (row) => this.toSummary(row, byMatch[row.id] ?? []));
   }
 
   private toSummary(row: MatchSummaryRow, sides: readonly MatchSideRow[]): MatchSummaryDto {

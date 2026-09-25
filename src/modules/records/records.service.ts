@@ -3,6 +3,7 @@ import { toIntOrZero } from 'src/common/formatting/numbers';
 import { formString, outcomeLetter, sideSummary } from 'src/common/formatting/result.util';
 import { HEAD_TO_HEAD_NOTE } from 'src/common/provenance/notes';
 import { summariseCounts } from 'src/common/provenance/source.util';
+import { mapPage, Page } from 'src/common/sql/page.util';
 import { FormMatchDto, HeadToHeadDto, TeamFormDto } from './dto/records.dto';
 import {
   HeadToHeadOptions,
@@ -20,13 +21,16 @@ export interface TeamRef {
 export class RecordsService {
   constructor(private readonly repository: RecordsRepository) {}
 
-  async recentMatches(teamId: string, options?: RecentMatchesOptions): Promise<FormMatchDto[]> {
-    const rows = await this.repository.recentTeamMatches(teamId, options);
-    return rows.map((row) => this.toFormMatch(row, teamId));
+  async recentMatches(
+    teamId: string,
+    options?: RecentMatchesOptions,
+  ): Promise<Page<FormMatchDto>> {
+    const page = await this.repository.recentTeamMatches(teamId, options);
+    return mapPage(page, (row) => this.toFormMatch(row, teamId));
   }
 
   async teamForm(team: TeamRef, options?: RecentMatchesOptions): Promise<TeamFormDto> {
-    const matches = await this.recentMatches(team.id, options);
+    const { rows: matches } = await this.recentMatches(team.id, options);
     return {
       team_id: team.id,
       name: team.name,

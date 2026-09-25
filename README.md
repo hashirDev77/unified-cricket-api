@@ -41,6 +41,21 @@ page, and each result group on search. It is an extension over the FastAPI servi
 reproduces that service's fixed sizes of 5, 10 and 10 respectively. On the three Nest-only
 endpoints it defaults to 20.
 
+`offset` is a non-negative integer that skips rows before the ones returned, so `limit` and
+`offset` together page through a list. Every endpoint that takes `limit` takes `offset`, and
+each one answers with a `pagination` block:
+
+```json
+"pagination": { "limit": 20, "offset": 40, "has_more": true }
+```
+
+`has_more` costs no count query: each list reads one row past its window and reports whether that
+row existed. On search the window applies to each group separately, so `has_more` is an object
+with one flag per group rather than a single boolean. The team page keeps `form` on the newest
+results whatever the offset, so paging `recent_matches` cannot rewrite the form string. Aggregates
+never page — the career totals, the per-format record and the head-to-head counts always span
+every row.
+
 Swagger UI is served at `/docs`.
 
 ## Source provenance
@@ -96,13 +111,15 @@ formatting and cricket notation lives in `common/formatting` as pure functions.
 code of every path in `verify-paths.txt`. Paths listed in `verify-nest-only.txt` exist only here,
 so they are checked for status and shape instead of being diffed.
 
-Four normalisations are applied, none of them behavioural. Python renders whole floats as `16.0`
+Five normalisations are applied, none of them behavioural. Python renders whole floats as `16.0`
 where JavaScript renders `16`; the two parse to the same double. The provenance fields are
 additions the FastAPI service never had, so `sources`, `source` and `source_label` are dropped —
 except on the scorecard and the events matchups, where `source` predates provenance and is
-compared. The match search orders only by rank and `start_date`, so rows sharing a date come back
-from Postgres in arbitrary order on either API. And `/v1/search` gained a `venues` block that the
-FastAPI service has no equivalent for, so that key is dropped before the two bodies are compared.
+compared. `pagination` is another addition, since the FastAPI service caps its lists with no way
+to ask for the rows past them, so that key is dropped too. The match search orders only by rank
+and `start_date`, so rows sharing a date come back from Postgres in arbitrary order on either API.
+And `/v1/search` gained a `venues` block that the FastAPI service has no equivalent for, so that
+key is dropped before the two bodies are compared.
 
 ## Notes on data handling
 

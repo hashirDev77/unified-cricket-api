@@ -49,11 +49,13 @@ fi
 pass=0
 fail=0
 
-# Four normalisations, none of them behavioural:
+# Five normalisations, none of them behavioural:
 #   - `. + 0` drops jq's preserved number literal, so Python's 16.0 and
 #     JavaScript's 16 compare equal.
 #   - the provenance fields are additions the FastAPI service never had. The
 #     events `source` predates them and is kept, hence the `sources` guard.
+#   - `pagination` is another addition; the FastAPI service caps its lists with
+#     no way to ask for the rows past them.
 #   - the match search orders only by rank and start_date, so rows sharing a
 #     date come back in arbitrary order from Postgres on either API.
 #   - search gained a `venues` block that the FastAPI service has no equivalent for.
@@ -63,7 +65,7 @@ NORMALISE='
       if type != "object" then .
       # `scorecard.source` and the events `source` predate provenance and stay.
       elif has("innings") or has("matchups") then del(.sources, .source_label)
-      else del(.sources, .source, .source_label) end
+      else del(.sources, .source, .source_label, .pagination) end
     )
   | if type == "object" and has("query") and has("matches")
     then (.matches |= sort_by(.start_date, .id)) | del(.venues)

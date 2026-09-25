@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { pageWindow, paginationOf } from 'src/common/dto/pagination.dto';
 import { spellEconomy } from 'src/common/formatting/averages.util';
 import { dismissalText } from 'src/common/formatting/dismissal.util';
 import { toBool, toInt } from 'src/common/formatting/numbers';
@@ -43,18 +44,16 @@ export class MatchesService {
   async findMatches(query: MatchSearchQueryDto): Promise<MatchListDto> {
     const format = query.format ?? null;
     const country = query.country ?? null;
+    const window = pageWindow(query, SEARCH_LIMIT);
 
-    const matches = await this.matchList.findMatches({
-      format,
-      country,
-      limit: query.limit ?? SEARCH_LIMIT,
-    });
+    const page = await this.matchList.findMatches({ format, country, ...window });
 
     return {
       filters: { format, country },
-      count: matches.length,
-      sources: summarise(matches, MATCH_LIST_NOTE),
-      matches,
+      count: page.rows.length,
+      pagination: paginationOf(page, window),
+      sources: summarise(page.rows, MATCH_LIST_NOTE),
+      matches: page.rows,
     };
   }
 

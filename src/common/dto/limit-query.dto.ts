@@ -18,4 +18,16 @@ export class LimitQueryDto {
   @Min(1)
   @Max(MAX_LIMIT)
   limit?: number;
+
+  @ApiPropertyOptional({
+    type: 'integer',
+    minimum: 0,
+    default: 0,
+    description: 'How many rows to skip before the ones returned.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset?: number;
 }

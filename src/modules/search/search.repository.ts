@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { containsPattern, prefixPattern } from 'src/common/sql/like.util';
+import { fetchPage, Page, PageWindow } from 'src/common/sql/page.util';
 import { toSofaId } from 'src/common/sql/query.util';
 import { wordRegex } from 'src/common/sql/word-regex.util';
 import {
@@ -16,13 +17,13 @@ import {
 } from 'src/database/entities';
 import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 
-export interface SearchTerms {
+/** `limit` and `offset` window each result group separately, not the total. */
+export interface SearchTerms extends PageWindow {
   q: string;
   pattern: string;
   prefix: string;
   word: string;
   sofaId: number | null;
-  limit: number;
 }
 
 export interface PlayerHitRow {
@@ -85,20 +86,20 @@ export class SearchRepository {
     @InjectRepository(Venue) private readonly venues: Repository<Venue>,
   ) {}
 
-  static terms(query: string, limit: number): SearchTerms {
+  static terms(query: string, window: PageWindow): SearchTerms {
     return {
       q: query,
       pattern: containsPattern(query),
       prefix: prefixPattern(query),
       word: wordRegex(query),
       sofaId: toSofaId(query),
-      limit,
+      ...window,
     };
   }
 
-  findPlayers(terms: SearchTerms): Promise<PlayerHitRow[]> {
+  findPlayers(terms: SearchTerms): Promise<Page<PlayerHitRow>> {
     const sofaMatch = terms.sofaId === null ? NEVER : 'p.sofaId = :sofaId';
-    return this.applyTerms(
+    return this.pageOf<PlayerHitRow>(
       this.players
         .createQueryBuilder('p')
         .select('CAST(p.playerId AS text)', 'id')
@@ -126,12 +127,12 @@ export class SearchRepository {
         )
         .addOrderBy('p.fullName'),
       terms,
-    ).getRawMany<PlayerHitRow>();
+    );
   }
 
-  findTeams(terms: SearchTerms): Promise<TeamHitRow[]> {
+  findTeams(terms: SearchTerms): Promise<Page<TeamHitRow>> {
     const sofaMatch = terms.sofaId === null ? NEVER : 't.sofaId = :sofaId';
-    return this.applyTerms(
+    return this.pageOf<TeamHitRow>(
       this.teams
         .createQueryBuilder('t')
         .select('CAST(t.teamId AS text)', 'id')
@@ -155,12 +156,12 @@ export class SearchRepository {
         )
         .addOrderBy('t.name'),
       terms,
-    ).getRawMany<TeamHitRow>();
+    );
   }
 
-  findCompetitions(terms: SearchTerms): Promise<CompetitionHitRow[]> {
+  findCompetitions(terms: SearchTerms): Promise<Page<CompetitionHitRow>> {
     const sofaMatch = terms.sofaId === null ? NEVER : 'c.sofaId = :sofaId';
-    return this.applyTerms(
+    return this.pageOf<CompetitionHitRow>(
       this.competitions
         .createQueryBuilder('c')
         .select('CAST(c.competitionId AS text)', 'id')
@@ -188,12 +189,12 @@ export class SearchRepository {
         )
         .addOrderBy('c.name'),
       terms,
-    ).getRawMany<CompetitionHitRow>();
+    );
   }
 
-  findVenues(terms: SearchTerms): Promise<VenueHitRow[]> {
+  findVenues(terms: SearchTerms): Promise<Page<VenueHitRow>> {
     const sofaMatch = terms.sofaId === null ? NEVER : 'v.sofaId = :sofaId';
-    return this.applyTerms(
+    return this.pageOf<VenueHitRow>(
       this.venues
         .createQueryBuilder('v')
         .select('CAST(v.venueId AS text)', 'id')
@@ -218,10 +219,10 @@ export class SearchRepository {
         )
         .addOrderBy('v.name'),
       terms,
-    ).getRawMany<VenueHitRow>();
+    );
   }
 
-  findMatches(terms: SearchTerms): Promise<MatchHitRow[]> {
+  findMatches(terms: SearchTerms): Promise<Page<MatchHitRow>> {
     const sofaMatch = terms.sofaId === null ? NEVER : 'm.sofaId = :sofaId';
     const byTeamName = this.matches
       .createQueryBuilder()
@@ -232,7 +233,7 @@ export class SearchRepository {
       .where(`sideTeam.name ILIKE :pattern ESCAPE '\\'`)
       .getQuery();
 
-    return this.applyTerms(
+    return this.pageOf<MatchHitRow>(
       this.matches
         .createQueryBuilder('m')
         .select('CAST(m.matchId AS text)', 'id')
@@ -248,7 +249,7 @@ export class SearchRepository {
         .orderBy(`CASE WHEN m.daft_match_id = :q OR ${sofaMatch} THEN 0 ELSE 1 END`)
         .addOrderBy('m.startDate', 'DESC'),
       terms,
-    ).getRawMany<MatchHitRow>();
+    );
   }
 
   private aliasSubQuery(
@@ -265,18 +266,17 @@ export class SearchRepository {
       .getQuery();
   }
 
-  private applyTerms<T extends ObjectLiteral>(
-    qb: SelectQueryBuilder<T>,
+  private pageOf<TRow, TEntity extends ObjectLiteral = ObjectLiteral>(
+    qb: SelectQueryBuilder<TEntity>,
     terms: SearchTerms,
-  ): SelectQueryBuilder<T> {
-    return qb
-      .setParameters({
-        q: terms.q,
-        pattern: terms.pattern,
-        prefix: terms.prefix,
-        word: terms.word,
-        ...(terms.sofaId === null ? {} : { sofaId: terms.sofaId }),
-      })
-      .limit(terms.limit);
+  ): Promise<Page<TRow>> {
+    qb.setParameters({
+      q: terms.q,
+      pattern: terms.pattern,
+      prefix: terms.prefix,
+      word: terms.word,
+      ...(terms.sofaId === null ? {} : { sofaId: terms.sofaId }),
+    });
+    return fetchPage<TRow, TEntity>(qb, terms);
   }
 }

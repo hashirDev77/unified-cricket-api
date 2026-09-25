@@ -68,9 +68,7 @@ export class TeamsController {
     @Query() query: TeamQueryDto,
   ): Promise<TeamPageDto> {
     const teamId = await this.identity.resolveTeam(teamKey);
-    const page = teamId
-      ? await this.service.getTeam(teamId, query.format ?? null, query.limit)
-      : null;
+    const page = teamId ? await this.service.getTeam(teamId, query) : null;
     if (!page) throw new NotFoundException('team not found');
     return page;
   }

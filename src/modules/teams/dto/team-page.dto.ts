@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SourcedDto } from 'src/common/dto/match-parts.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { ResponseSourcesDto } from 'src/common/dto/source.dto';
 import { FormMatchDto } from 'src/modules/records/dto/records.dto';
 
@@ -62,6 +63,9 @@ export class TeamPageDto extends SourcedDto {
 
   @ApiProperty({ type: [FormMatchDto] })
   recent_matches: FormMatchDto[];
+
+  @ApiProperty({ type: PaginationDto, description: 'Window over `recent_matches`.' })
+  pagination: PaginationDto;
 
   @ApiProperty({ type: ResponseSourcesDto })
   sources: ResponseSourcesDto;

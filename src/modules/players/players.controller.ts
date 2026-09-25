@@ -60,9 +60,7 @@ export class PlayersController {
     @Query() query: PlayerQueryDto,
   ): Promise<PlayerPageDto> {
     const playerId = await this.identity.resolvePlayer(playerKey);
-    const page = playerId
-      ? await this.players.getPlayer(playerId, query.format ?? null, query.limit)
-      : null;
+    const page = playerId ? await this.players.getPlayer(playerId, query) : null;
     if (!page) throw new NotFoundException('player not found');
     return page;
   }

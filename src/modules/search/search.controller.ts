@@ -18,6 +18,6 @@ export class SearchController {
   })
   @ApiOkResponse({ type: SearchResponseDto })
   search(@Query() query: SearchQueryDto): Promise<SearchResponseDto> {
-    return this.service.search(query.q, query.limit);
+    return this.service.search(query);
   }
 }

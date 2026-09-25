@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { MatchSummaryDto } from 'src/common/dto/match-summary.dto';
+import { pageWindow, paginationOf } from 'src/common/dto/pagination.dto';
 import { toInt, toIntOrZero } from 'src/common/formatting/numbers';
 import { VENUE_MATCHES_NOTE } from 'src/common/provenance/notes';
 import { sourceRef, summarise } from 'src/common/provenance/source.util';
+import { emptyPage } from 'src/common/sql/page.util';
 import { IdentityService } from 'src/modules/identity/identity.service';
 import { MatchListService } from 'src/modules/match-list/match-list.service';
 import { VenueMatchesQueryDto } from './dto/venue-matches-query.dto';
@@ -28,24 +31,26 @@ export class VenuesService {
     const format = query.format ?? null;
     const matchId = query.match_id ? await this.identity.resolveMatch(query.match_id) : null;
     const filters = { format, match_id: matchId };
+    const window = pageWindow(query, VENUE_MATCH_LIMIT);
 
     // An unresolvable match id filters everything out rather than 404ing the venue.
-    const matches =
+    const page =
       query.match_id && !matchId
-        ? []
+        ? emptyPage<MatchSummaryDto>()
         : await this.matchList.findMatches({
             venueId: venue.id,
             matchId,
             format,
-            limit: query.limit ?? VENUE_MATCH_LIMIT,
+            ...window,
           });
 
     return {
       venue: this.toVenue(venue),
       filters,
-      count: matches.length,
-      sources: summarise([venue, ...matches], VENUE_MATCHES_NOTE),
-      matches,
+      count: page.rows.length,
+      pagination: paginationOf(page, window),
+      sources: summarise([venue, ...page.rows], VENUE_MATCHES_NOTE),
+      matches: page.rows,
     };
   }
 

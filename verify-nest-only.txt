@@ -10,6 +10,12 @@
 /v1/matches?country=Nowhere&limit=5	200	.count == 0
 /v1/matches?limit=0	400	
 /v1/matches?limit=500	400	
+/v1/matches?limit=5&offset=5	200	.count == 5 and .pagination.offset == 5 and .pagination.limit == 5 and .pagination.has_more == true
+/v1/matches?offset=-1	400	
+/v1/matches?country=Nowhere&offset=10	200	.count == 0 and .pagination.has_more == false
+/v1/teams/34730dd0-bb84-4a04-a343-52395b5c710b?limit=3&offset=3	200	(.recent_matches | length) == 3 and (.form | length) == 3 and .pagination.offset == 3
+/v1/players/f4d2dff6-2fc5-44cb-ad1d-7a7c2dcdbf9a?limit=4&offset=4	200	(.recent_innings | length) == 4 and .pagination.offset == 4
+/v1/search?q=India&limit=2&offset=2	200	.pagination.offset == 2 and (.pagination.has_more.players | type) == "boolean"
 /v1/venues/965f4ae0-0b91-4988-b848-fce938a53214/matches?limit=2	200	.venue.name == "Lord's" and .venue.total_matches == 1954 and .count == 2
 /v1/venues/Lord%27s/matches?limit=1	200	.venue.id == "965f4ae0-0b91-4988-b848-fce938a53214"
 /v1/venues/Dhaka/matches?limit=1	200	.venue.country == "Bangladesh" and .venue.total_matches == 68

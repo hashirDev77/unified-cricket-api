@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { pageWindow, paginationOf } from 'src/common/dto/pagination.dto';
 import {
   battingAverage,
   battingStrikeRate,
@@ -14,19 +15,20 @@ import {
   sourceRef,
   summariseCounts,
 } from 'src/common/provenance/source.util';
-import { MatchFormat } from 'src/database/enums/cricket.enums';
 import {
   BattingSummaryDto,
   BowlingSummaryDto,
   PlayerPageDto,
   RecentInningsDto,
 } from './dto/player-page.dto';
+import { PlayerQueryDto } from './dto/player-query.dto';
 import {
   BattingAggregateRow,
   BestFiguresRow,
   BowlingAggregateRow,
   HighestScoreRow,
   PlayersRepository,
+  RECENT_INNINGS_LIMIT,
   RecentInningsRow,
 } from './players.repository';
 
@@ -34,20 +36,19 @@ import {
 export class PlayersService {
   constructor(private readonly repository: PlayersRepository) {}
 
-  async getPlayer(
-    playerId: string,
-    format: MatchFormat | null,
-    limit?: number,
-  ): Promise<PlayerPageDto | null> {
+  async getPlayer(playerId: string, query: PlayerQueryDto): Promise<PlayerPageDto | null> {
     const player = await this.repository.findPlayer(playerId);
     if (!player) return null;
+
+    const format = query.format ?? null;
+    const window = pageWindow(query, RECENT_INNINGS_LIMIT);
 
     const [batting, highest, bowling, best, recent] = await Promise.all([
       this.repository.battingAggregate(playerId, format),
       this.repository.highestScore(playerId, format),
       this.repository.bowlingAggregate(playerId, format),
       this.repository.bestFigures(playerId, format),
-      this.repository.recentInnings(playerId, format, limit),
+      this.repository.recentInnings(playerId, format, window),
     ]);
 
     const battingSummary = this.toBattingSummary(batting, highest);
@@ -69,7 +70,8 @@ export class PlayersService {
       format,
       batting: battingSummary,
       bowling: bowlingSummary,
-      recent_innings: recent.map(this.toRecentInnings),
+      recent_innings: recent.rows.map(this.toRecentInnings),
+      pagination: paginationOf(recent, window),
       sources: mergeSummaries(
         [battingSummary.sources, bowlingSummary.sources],
         PLAYER_PAGE_NOTE,

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Numeric } from 'src/common/formatting/numbers';
 import { SourceCountRow, sourceCountSelects } from 'src/common/provenance/source.util';
+import { DEFAULT_OFFSET, fetchPage, Page } from 'src/common/sql/page.util';
 import { Competition, Match, MatchTeam, Team } from 'src/database/entities';
 import { MatchFormat, MatchStatus } from 'src/database/enums/cricket.enums';
 import { Repository } from 'typeorm';
@@ -30,6 +31,7 @@ export interface HeadToHeadRow extends SourceCountRow {
 
 export interface RecentMatchesOptions {
   limit?: number;
+  offset?: number;
   format?: MatchFormat | null;
   beforeDate?: string | null;
   excludeMatchId?: string | null;
@@ -43,8 +45,17 @@ export interface HeadToHeadOptions {
 export class RecordsRepository {
   constructor(@InjectRepository(Match) private readonly matches: Repository<Match>) {}
 
-  recentTeamMatches(teamId: string, options: RecentMatchesOptions = {}): Promise<RecentMatchRow[]> {
-    const { limit = 5, format = null, beforeDate = null, excludeMatchId = null } = options;
+  recentTeamMatches(
+    teamId: string,
+    options: RecentMatchesOptions = {},
+  ): Promise<Page<RecentMatchRow>> {
+    const {
+      limit = 5,
+      offset = DEFAULT_OFFSET,
+      format = null,
+      beforeDate = null,
+      excludeMatchId = null,
+    } = options;
 
     const qb = this.matches
       .createQueryBuilder('m')
@@ -84,8 +95,7 @@ export class RecordsRepository {
       .where('m.status = :status', { status: MatchStatus.Completed })
       .setParameter('teamId', teamId)
       .orderBy('m.startDate', 'DESC')
-      .addOrderBy('m.matchId', 'DESC')
-      .limit(limit);
+      .addOrderBy('m.matchId', 'DESC');
 
     if (format) {
       qb.andWhere('m.format = CAST(:format AS cricket.match_format)', { format });
@@ -97,7 +107,7 @@ export class RecordsRepository {
       qb.andWhere('m.matchId <> CAST(:excludeMatchId AS uuid)', { excludeMatchId });
     }
 
-    return qb.getRawMany<RecentMatchRow>();
+    return fetchPage<RecentMatchRow>(qb, { limit, offset });
   }
 
   async headToHead(

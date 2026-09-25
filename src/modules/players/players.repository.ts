@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Numeric } from 'src/common/formatting/numbers';
 import { SourceCountRow, sourceCountSelects } from 'src/common/provenance/source.util';
+import { fetchPage, Page, PageWindow } from 'src/common/sql/page.util';
 import { Batting, Bowling, Innings, Match, MatchTeam, Player, Team } from 'src/database/entities';
 import { MatchFormat } from 'src/database/enums/cricket.enums';
 import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
@@ -65,7 +66,7 @@ export interface RecentInningsRow {
   is_out: boolean | null;
 }
 
-const RECENT_INNINGS_LIMIT = 10;
+export const RECENT_INNINGS_LIMIT = 10;
 
 @Injectable()
 export class PlayersRepository {
@@ -181,9 +182,9 @@ export class PlayersRepository {
   recentInnings(
     playerId: string,
     format: MatchFormat | null,
-    limit = RECENT_INNINGS_LIMIT,
-  ): Promise<RecentInningsRow[]> {
-    return this.scopedBatting(playerId, format)
+    window: PageWindow,
+  ): Promise<Page<RecentInningsRow>> {
+    const qb = this.scopedBatting(playerId, format)
       .select('CAST(m.matchId AS text)', 'match_id')
       .addSelect('CAST(b.rowSource AS text)', 'source')
       .addSelect('m.startDate', 'start_date')
@@ -207,9 +208,9 @@ export class PlayersRepository {
       )
       .andWhere('NOT b.didNotBat')
       .orderBy('m.startDate', 'DESC')
-      .addOrderBy('i.inningsNumber', 'DESC')
-      .limit(limit)
-      .getRawMany<RecentInningsRow>();
+      .addOrderBy('i.inningsNumber', 'DESC');
+
+    return fetchPage<RecentInningsRow>(qb, window);
   }
 
   /** `batting -> innings -> match`, optionally narrowed to one format. */

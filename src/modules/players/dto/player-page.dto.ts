@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SourcedDto } from 'src/common/dto/match-parts.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { ResponseSourcesDto } from 'src/common/dto/source.dto';
 
 export class BattingSummaryDto {
@@ -164,6 +165,9 @@ export class PlayerPageDto extends SourcedDto {
 
   @ApiProperty({ type: [RecentInningsDto] })
   recent_innings: RecentInningsDto[];
+
+  @ApiProperty({ type: PaginationDto, description: 'Window over `recent_innings`.' })
+  pagination: PaginationDto;
 
   @ApiProperty({ type: ResponseSourcesDto })
   sources: ResponseSourcesDto;
